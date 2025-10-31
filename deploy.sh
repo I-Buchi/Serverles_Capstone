@@ -8,7 +8,7 @@ echo "🚀 Starting ClinicaVoice deployment"
 echo "-----------------------------------"
 
 # Navigate to your Terraform project folder
-cd ~/cvts-serverless || exit
+#cd ~/cvts-serverless || exit
 
 # Initialize Terraform (only required first time)
 terraform init -upgrade
