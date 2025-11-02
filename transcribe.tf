@@ -25,12 +25,12 @@ resource "aws_iam_role_policy_attachment" "transcribe_s3_access" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonS3FullAccess"
 }
 
-resource "aws_lambda_function" "clinica_transcribe_lambda" {
-  function_name = "clinica-transcribe-medical"
-  runtime       = "python3.9"
-  role          = aws_iam_role.transcribe_exec_role.arn
-  handler       = "lambda_transcribe.lambda_handler"
-  filename      = "lambda_transcribe.zip"
-  timeout       = 120
-}
+#resource "aws_lambda_function" "clinica_transcribe_lambda" {
+  #function_name = "clinica-transcribe-medical"
+  #runtime       = "python3.9"
+  #role          = aws_iam_role.transcribe_exec_role.arn
+  #handler       = "lambda_transcribe.lambda_handler"
+  #filename      = "lambda_transcribe.zip"
+  #timeout       = 120
+#}
 

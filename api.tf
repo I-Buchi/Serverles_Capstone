@@ -35,7 +35,7 @@ resource "aws_api_gateway_integration" "lambda_integration" {
 
   integration_http_method = "POST"
   type                    = "AWS_PROXY"
-  uri                     = aws_lambda_function.clinica_lambda.invoke_arn
+  uri                     = aws_lambda_function.transcribe_lambda_function.invoke_arn
 }
 
 # -------------------------------
@@ -68,7 +68,7 @@ resource "aws_api_gateway_stage" "clinica_stage" {
 resource "aws_lambda_permission" "api_gateway_permission" {
   statement_id  = "AllowAPIGatewayInvoke"
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.clinica_lambda.function_name
+  function_name = aws_lambda_function.transcribe_lambda_function.function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_api_gateway_rest_api.clinica_api.execution_arn}/*/*"
 }
