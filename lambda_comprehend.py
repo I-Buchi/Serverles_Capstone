@@ -11,10 +11,18 @@ DYNAMO_TABLE = 'clinica-metadata-table'
 
 def lambda_handler(event, context):
     try:
-        # Get S3 file info
-        record = event['Records'][0]
-        bucket_name = record['s3']['bucket']['name']
-        file_name = record['s3']['object']['key']
+        # Handle S3 event or direct invocation
+        if 'Records' in event:
+            # S3 event
+            record = event['Records'][0]
+            bucket_name = record['s3']['bucket']['name']
+            file_name = record['s3']['object']['key']
+        else:
+            # Direct invocation - expect bucket and key in event
+            bucket_name = event.get('bucket')
+            file_name = event.get('key')
+            if not bucket_name or not file_name:
+                raise ValueError("Missing 'bucket' or 'key' in event for direct invocation")
 
         # Read transcript content
         transcript_obj = s3.get_object(Bucket=bucket_name, Key=file_name)
@@ -23,8 +31,9 @@ def lambda_handler(event, context):
         # Run Comprehend Medical
         result = comprehend.detect_entities_v2(Text=transcript_text)
 
-        # Save structured data back to S3
-        output_key = file_name.replace('.json', '-entities.json')
+        # Save structured data to comprehend folder
+        base_name = file_name.split('/')[-1].replace('.json', '')
+        output_key = f"comprehend/{base_name}-entities.json"
         s3.put_object(
             Bucket=bucket_name,
             Key=output_key,
@@ -35,7 +44,8 @@ def lambda_handler(event, context):
         table = dynamodb.Table(DYNAMO_TABLE)
         table.put_item(
             Item={
-                'file_id': file_name,
+                'record_id': base_name,
+                'file_name': file_name,
                 'timestamp': datetime.utcnow().isoformat(),
                 'status': 'COMPLETED',
                 'entities_output': output_key

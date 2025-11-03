@@ -16,15 +16,7 @@ resource "aws_s3_bucket" "clinica_voice_bucket" {
     Project     = "ClinicaVoice"
   }
 
-  # --- Enable server-side encryption using our CMK ---
-  server_side_encryption_configuration {
-    rule {
-      apply_server_side_encryption_by_default {
-        kms_master_key_id = aws_kms_key.clinica_key.arn
-        sse_algorithm     = "aws:kms"
-      }
-    }
-  }
+
 }
 
 # Block all public access for security
@@ -74,18 +66,7 @@ output "clinica_voice_s3_bucket_name" {
   value       = aws_s3_bucket.clinica_voice_bucket.bucket
 }
 
-resource "aws_s3_bucket_notification" "audio_upload_trigger" {
-  bucket = aws_s3_bucket.clinica_voice_bucket.id
 
-  lambda_function {
-    lambda_function_arn = aws_lambda_function.transcribe_lambda_function.arn
-    events              = ["s3:ObjectCreated:*"]
-    filter_prefix       = ""
-    filter_suffix       = ".wav" # or ".mp3" if your audio format is mp3
-  }
-
-  depends_on = [aws_lambda_permission.allow_s3_trigger]
-}
 
 resource "aws_lambda_permission" "allow_s3_trigger" {
   statement_id  = "AllowS3Invoke"
@@ -95,18 +76,6 @@ resource "aws_lambda_permission" "allow_s3_trigger" {
   source_arn    = aws_s3_bucket.clinica_voice_bucket.arn
 }
 
-# ======================================================
-# Enable Server-Side Encryption using our KMS key
-# ======================================================
-resource "aws_s3_bucket_server_side_encryption_configuration" "s3_encryption" {
-  bucket = aws_s3_bucket.clinica_voice_bucket.id
 
-  rule {
-    apply_server_side_encryption_by_default {
-      sse_algorithm     = "aws:kms"
-      kms_master_key_id = aws_kms_key.clinica_key.arn
-    }
-  }
-}
 
 
