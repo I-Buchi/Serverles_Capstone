@@ -22,23 +22,25 @@ def lambda_handler(event, context):
 
         file_uri = f"s3://{bucket_name}/{file_name}"
 
-        # Start Transcribe job
+        # Start Transcribe job with output to transcripts folder
+        media_format = 'mp3' if file_name.endswith('.mp3') else 'wav'
         transcribe.start_transcription_job(
             TranscriptionJobName=job_name,
             Media={'MediaFileUri': file_uri},
-            MediaFormat='wav',
+            MediaFormat=media_format,
             LanguageCode='en-US',
-            OutputBucketName=bucket_name
+            OutputBucketName=bucket_name,
+            OutputKey=f"transcripts/{job_name}.json"
         )
 
         # Log the job into DynamoDB
         table = dynamodb.Table(DYNAMO_TABLE)
         table.put_item(
             Item={
-                'file_id': file_name,
+                'record_id': job_name,
+                'file_name': file_name,
                 'timestamp': datetime.utcnow().isoformat(),
                 'status': 'IN_PROGRESS',
-                'job_name': job_name,
                 'file_uri': file_uri
             }
         )

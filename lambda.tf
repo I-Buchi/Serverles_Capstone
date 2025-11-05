@@ -17,6 +17,18 @@ resource "aws_kms_key" "clinica_key" {
         }
         Action   = "kms:*"
         Resource = "*"
+      },
+      {
+        Sid    = "Allow Transcribe Service"
+        Effect = "Allow"
+        Principal = {
+          Service = "transcribe.amazonaws.com"
+        }
+        Action = [
+          "kms:Decrypt",
+          "kms:GenerateDataKey"
+        ]
+        Resource = "*"
       }
     ]
   })
@@ -90,6 +102,7 @@ resource "aws_lambda_function" "comprehend_lambda_function" {
   handler          = "lambda_comprehend.lambda_handler"
   source_code_hash = filebase64sha256(data.archive_file.comprehend_zip.output_path)
   runtime          = "python3.9"
+  timeout          = 60
   environment {
     variables = {
       DYNAMO_TABLE = aws_dynamodb_table.clinica_metadata_table.name
@@ -124,16 +137,32 @@ resource "aws_lambda_permission" "allow_s3_to_invoke_comprehend" {
   source_arn    = aws_s3_bucket.clinica_voice_bucket.arn
 }
 
-resource "aws_s3_bucket_notification" "trigger_comprehend_lambda" {
+resource "aws_s3_bucket_notification" "s3_lambda_triggers" {
   bucket = aws_s3_bucket.clinica_voice_bucket.id
+
+  lambda_function {
+    lambda_function_arn = aws_lambda_function.transcribe_lambda_function.arn
+    events              = ["s3:ObjectCreated:*"]
+    filter_suffix       = ".mp3"
+  }
+
+  lambda_function {
+    lambda_function_arn = aws_lambda_function.transcribe_lambda_function.arn
+    events              = ["s3:ObjectCreated:*"]
+    filter_suffix       = ".wav"
+  }
 
   lambda_function {
     lambda_function_arn = aws_lambda_function.comprehend_lambda_function.arn
     events              = ["s3:ObjectCreated:*"]
-    filter_suffix       = ".json" # triggers only for JSON output files
+    filter_prefix       = "transcripts/"
+    filter_suffix       = ".json"
   }
 
-  depends_on = [aws_lambda_permission.allow_s3_to_invoke_comprehend]
+  depends_on = [
+    aws_lambda_permission.allow_s3_trigger,
+    aws_lambda_permission.allow_s3_to_invoke_comprehend
+  ]
 }
 
 # =============================
