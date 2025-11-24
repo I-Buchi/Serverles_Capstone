@@ -1,0 +1,22 @@
+/* src/styles.css */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&family=Roboto:wght@300;400;500&display=swap');
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  background: #F9FAFB;
+  color: #000000;
+  font-family: Poppins, Roboto, sans-serif;
+}
+
+/* small visual niceties */
+.header-logo {
+  height: 40px;
+  width: auto;
+  transition: transform .18s ease, box-shadow .18s ease;
+  border-radius: 6px;
+}
+.header-logo:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
