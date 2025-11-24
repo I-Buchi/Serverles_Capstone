@@ -1,0 +1,1 @@
+{"filename": "builds/407365f812dd3179f575e4c88a09e1a835c63b341132c75d2cdad1a8b5f343bd.zip", "runtime": "python3.9", "artifacts_dir": "builds", "build_plan": [[["zip", "./../src/post_confirmation.py", null]]], "quiet": "true"}
