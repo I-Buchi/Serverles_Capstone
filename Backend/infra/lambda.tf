@@ -33,29 +33,25 @@ resource "aws_lambda_permission" "s3_invoke_lambda" {
 resource "aws_s3_bucket_notification" "lambda_triggers" {
   bucket = module.s3_bucket.s3_bucket_id
 
-  dynamic "lambda_function" {
-    for_each = {
-      transcribe = {
-        events        = ["s3:ObjectCreated:*"]
-        filter_suffix = ".mp3"
-      }
-      transcribe_wav = {
-        events        = ["s3:ObjectCreated:*"]
-        filter_suffix = ".wav"
-      }
-      comprehend = {
-        events        = ["s3:ObjectCreated:*"]
-        filter_prefix = "transcripts/"
-        filter_suffix = ".json"
-      }
-    }
-    
-    content {
-      lambda_function_arn = contains(["transcribe", "transcribe_wav"], lambda_function.key) ? module.lambda_function["lambda_transcribe"].lambda_function_arn : module.lambda_function["lambda_comprehend"].lambda_function_arn
-      events              = lambda_function.value.events
-      filter_prefix       = lookup(lambda_function.value, "filter_prefix", null)
-      filter_suffix       = lambda_function.value.filter_suffix
-    }
+  lambda_function {
+    lambda_function_arn = module.lambda_function["lambda_transcribe"].lambda_function_arn
+    events              = ["s3:ObjectCreated:*"]
+    filter_prefix       = "audio/"
+    filter_suffix       = ".mp3"
+  }
+  
+  lambda_function {
+    lambda_function_arn = module.lambda_function["lambda_transcribe"].lambda_function_arn
+    events              = ["s3:ObjectCreated:*"]
+    filter_prefix       = "audio/"
+    filter_suffix       = ".wav"
+  }
+  
+  lambda_function {
+    lambda_function_arn = module.lambda_function["lambda_comprehend"].lambda_function_arn
+    events              = ["s3:ObjectCreated:*"]
+    filter_prefix       = "transcripts/"
+    filter_suffix       = ".json"
   }
 
   depends_on = [aws_lambda_permission.s3_invoke_lambda]

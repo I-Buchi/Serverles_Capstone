@@ -53,7 +53,7 @@ module "api_gateway" {
 resource "aws_lambda_permission" "api_gateway_permissions" {
   for_each = local.api_routes
 
-  statement_id  = "AllowAPIGatewayInvoke${replace(title(each.value.lambda_key), "_", "")}"
+  statement_id  = "AllowAPIGatewayInvoke_${each.value.lambda_key}_${replace(replace(replace(replace(each.key, "/", "_"), " ", "_"), "{", ""), "}", "")}"
   action        = "lambda:InvokeFunction"
   function_name = module.lambda_function[each.value.lambda_key].lambda_function_name
   principal     = "apigateway.amazonaws.com"

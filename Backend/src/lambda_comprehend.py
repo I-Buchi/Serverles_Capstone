@@ -7,7 +7,8 @@ comprehend = boto3.client('comprehendmedical')
 dynamodb = boto3.resource('dynamodb')
 s3 = boto3.client('s3')
 
-DYNAMO_TABLE = 'clinica-metadata-table'
+DYNAMO_TABLE = os.environ['DYNAMO_TABLE']
+BUCKET_NAME = os.environ['BUCKET_NAME']
 
 def lambda_handler(event, context):
     try:
@@ -24,31 +25,42 @@ def lambda_handler(event, context):
             if not bucket_name or not file_name:
                 raise ValueError("Missing 'bucket' or 'key' in event for direct invocation")
 
-        # Read transcript content
+        # Extract file_id from transcript file name (format: transcripts/{file_id}.json)
+        file_id = file_name.split('/')[-1].replace('.json', '')
+        
+        # Read transcript content from S3
         transcript_obj = s3.get_object(Bucket=bucket_name, Key=file_name)
-        transcript_text = transcript_obj['Body'].read().decode('utf-8')
+        transcript_data = json.loads(transcript_obj['Body'].read().decode('utf-8'))
+        
+        # Extract transcript text from AWS Transcribe output
+        transcript_text = ''
+        if 'results' in transcript_data and 'transcripts' in transcript_data['results']:
+            transcript_text = transcript_data['results']['transcripts'][0]['transcript']
+        
+        if not transcript_text:
+            raise ValueError('No transcript text found in file')
 
         # Run Comprehend Medical
         result = comprehend.detect_entities_v2(Text=transcript_text)
 
         # Save structured data to comprehend folder
-        base_name = file_name.split('/')[-1].replace('.json', '')
-        output_key = f"comprehend/{base_name}-entities.json"
+        output_key = f"comprehend/{file_id}-entities.json"
         s3.put_object(
             Bucket=bucket_name,
             Key=output_key,
             Body=json.dumps(result)
         )
 
-        # Log result to DynamoDB
+        # Update DynamoDB record status to COMPLETED
         table = dynamodb.Table(DYNAMO_TABLE)
-        table.put_item(
-            Item={
-                'record_id': base_name,
-                'file_name': file_name,
-                'timestamp': datetime.utcnow().isoformat(),
-                'status': 'COMPLETED',
-                'entities_output': output_key
+        table.update_item(
+            Key={'file_id': file_id},
+            UpdateExpression='SET #status = :status, entities_output = :entities_output, updated_at = :updated_at',
+            ExpressionAttributeNames={'#status': 'status'},
+            ExpressionAttributeValues={
+                ':status': 'COMPLETED',
+                ':entities_output': output_key,
+                ':updated_at': datetime.utcnow().isoformat()
             }
         )
 

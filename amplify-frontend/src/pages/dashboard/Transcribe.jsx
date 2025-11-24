@@ -14,8 +14,8 @@ import StopIcon from "@mui/icons-material/Stop";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 import SaveIcon from "@mui/icons-material/Save";
 import { useTranslation } from "react-i18next";
-import { uploadData } from "aws-amplify/storage";
-import { post } from "aws-amplify/api";
+
+import { post, get } from "aws-amplify/api";
 import { useParams } from "react-router-dom";
 
 export default function Transcribe() {
@@ -76,50 +76,115 @@ export default function Transcribe() {
     }
 
     setLoading(true);
-    setStatusMessage(t("transcribing"));
+    setStatusMessage(t("uploading_audio"));
 
     try {
-      // Step 1️⃣ Upload file to S3
-      const uploadResult = await uploadData({
-        key: `audio/${Date.now()}_${audioFile.name}`,
-        data: audioFile,
-        options: { contentType: audioFile.type },
-      }).result;
-
-      // Step 2️⃣ Trigger transcription through API Gateway
-      const response = await post({
+      // Step 1: Get presigned URL from backend
+      const uploadResponse = await post({
         apiName: "ClinicaVoiceAPI",
-        path: "/transcribe",
-        options: { body: { fileKey: uploadResult.key } },
+        path: "/upload",
+        options: {
+          body: {
+            filename: audioFile.name,
+            content_type: audioFile.type || 'audio/mpeg'
+          }
+        }
       }).response;
+      
+      const uploadData = await uploadResponse.body.json();
+      
+      if (!uploadData.upload_url) {
+        throw new Error('Failed to get upload URL');
+      }
 
-      const data = await response.body.json();
-      setTranscript(data.transcript || "Transcription completed successfully.");
-      setStatusMessage(t("transcript_saved"));
+      // Step 2: Upload file using presigned URL
+      const uploadResult = await fetch(uploadData.upload_url, {
+        method: 'PUT',
+        body: audioFile,
+        headers: {
+          'Content-Type': audioFile.type || 'audio/mpeg'
+        }
+      });
+
+      if (!uploadResult.ok) {
+        throw new Error('Upload failed');
+      }
+
+      setStatusMessage(t("transcription_started"));
+      
+      // Step 3: Poll for results using file_id
+      pollForResults(uploadData.file_id);
+      
     } catch (error) {
-      console.error("Transcription failed:", error);
-      setStatusMessage(t("save_failed"));
-    } finally {
+      console.error("Upload failed:", error);
+      setStatusMessage(t("upload_failed"));
       setLoading(false);
     }
   };
 
-  // 💾 Save transcript to cloud (optional extension)
+  // Poll for transcription results
+  const pollForResults = async (fileId) => {
+    let attempts = 0;
+    const maxAttempts = 30; // 5 minutes max
+    
+    const poll = async () => {
+      try {
+        attempts++;
+        setStatusMessage(`Checking results... (${attempts}/${maxAttempts})`);
+        
+        // Check if transcript file exists in S3
+        const transcriptKey = `transcripts/${jobId}.json`;
+        
+        // Get results via API using file_id
+        const response = await get({
+          apiName: "ClinicaVoiceAPI",
+          path: `/results/${fileId}`
+        }).response;
+        
+        const data = await response.body.json();
+        
+        if (data.transcript) {
+          setTranscript(data.transcript);
+          setStatusMessage(t("transcription_completed"));
+          setLoading(false);
+        } else if (attempts < maxAttempts) {
+          setTimeout(poll, 10000); // Check every 10 seconds
+        } else {
+          setStatusMessage(t("transcription_timeout"));
+          setLoading(false);
+        }
+      } catch (error) {
+        if (attempts < maxAttempts) {
+          setTimeout(poll, 10000);
+        } else {
+          setStatusMessage(t("transcription_failed"));
+          setLoading(false);
+        }
+      }
+    };
+    
+    // Start polling after 5 seconds
+    setTimeout(poll, 5000);
+  };
+
+  // 💾 Save transcript locally or to cloud
   const saveTranscript = async () => {
     try {
-      setLoading(true);
-      const response = await post({
-        apiName: "ClinicaVoiceAPI",
-        path: "/save-transcript",
-        options: { body: { transcript } },
-      }).response;
-      const data = await response.body.json();
-      setStatusMessage(data.message || t("transcript_saved"));
+      // Create downloadable file
+      const blob = new Blob([transcript], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `transcript_${Date.now()}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      setStatusMessage(t("transcript_downloaded"));
     } catch (error) {
       console.error("Save failed:", error);
       setStatusMessage(t("save_failed"));
-    } finally {
-      setLoading(false);
     }
   };
 

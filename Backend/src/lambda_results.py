@@ -1,7 +1,6 @@
 import json
 import boto3
 import os
-from boto3.dynamodb.conditions import Key
 
 dynamodb = boto3.resource('dynamodb')
 s3 = boto3.client('s3')
@@ -11,65 +10,67 @@ BUCKET_NAME = os.environ['BUCKET_NAME']
 
 def lambda_handler(event, context):
     try:
-        # Get user info from Cognito
-        user_id = event['requestContext']['authorizer']['claims']['sub']
-        
         # Get file_id from path parameters
-        file_id = event['pathParameters']['id']
+        file_id = None
+        if event.get('pathParameters') and event['pathParameters'].get('id'):
+            file_id = event['pathParameters']['id']
         
         if not file_id:
             return {
                 'statusCode': 400,
+                'headers': {
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Allow-Headers': 'Content-Type,Authorization',
+                    'Access-Control-Allow-Methods': 'GET,POST'
+                },
                 'body': json.dumps({'error': 'file_id is required'})
             }
         
-        # Get record from DynamoDB
+        # Try to get record from DynamoDB using file_id
         table = dynamodb.Table(DYNAMO_TABLE)
         response = table.get_item(Key={'file_id': file_id})
         
-        if 'Item' not in response:
-            return {
-                'statusCode': 404,
-                'body': json.dumps({'error': 'File not found'})
-            }
+        result = {'fileId': file_id, 'status': 'processing'}
         
-        item = response['Item']
-        
-        # Check if user owns this file (optional security check)
-        if item.get('user_id') != user_id:
-            return {
-                'statusCode': 403,
-                'body': json.dumps({'error': 'Access denied'})
-            }
-        
-        # Prepare response data
-        result = {
-            'file_id': file_id,
-            'filename': item.get('filename'),
-            'status': item.get('status'),
-            'created_at': item.get('created_at'),
-            'updated_at': item.get('updated_at')
-        }
-        
-        # Add transcription if available
-        if 'transcription' in item:
-            result['transcription'] = item['transcription']
-        
-        # Add medical analysis if available
-        if 'medical_entities' in item:
-            result['medical_analysis'] = {
-                'entities': item['medical_entities'],
-                'conditions': item.get('medical_conditions', []),
-                'medications': item.get('medical_medications', []),
-                'procedures': item.get('medical_procedures', [])
-            }
+        if 'Item' in response:
+            item = response['Item']
+            result['status'] = item.get('status', 'processing')
+            
+            # If completed, try to get transcript and entities
+            if item.get('status') == 'COMPLETED':
+                transcript_text = None
+                entities_data = None
+                
+                # Try to get transcript from S3
+                try:
+                    transcript_key = f"transcripts/{file_id}.json"
+                    transcript_obj = s3.get_object(Bucket=BUCKET_NAME, Key=transcript_key)
+                    transcript_data = json.loads(transcript_obj['Body'].read().decode('utf-8'))
+                    
+                    if 'results' in transcript_data and 'transcripts' in transcript_data['results']:
+                        transcript_text = transcript_data['results']['transcripts'][0]['transcript']
+                except Exception as e:
+                    print(f"Could not get transcript: {e}")
+                
+                # Try to get entities from S3
+                try:
+                    entities_key = f"comprehend/{file_id}-entities.json"
+                    entities_obj = s3.get_object(Bucket=BUCKET_NAME, Key=entities_key)
+                    entities_data = json.loads(entities_obj['Body'].read().decode('utf-8'))
+                except Exception as e:
+                    print(f"Could not get entities: {e}")
+                
+                if transcript_text:
+                    result['transcript'] = transcript_text
+                if entities_data:
+                    result['medicalEntities'] = entities_data
         
         return {
             'statusCode': 200,
             'headers': {
                 'Access-Control-Allow-Origin': '*',
                 'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-                'Access-Control-Allow-Methods': 'GET'
+                'Access-Control-Allow-Methods': 'GET,POST'
             },
             'body': json.dumps(result)
         }
@@ -78,5 +79,10 @@ def lambda_handler(event, context):
         print(f"Error: {e}")
         return {
             'statusCode': 500,
-            'body': json.dumps({'error': 'Internal server error'})
+            'headers': {
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Headers': 'Content-Type,Authorization',
+                'Access-Control-Allow-Methods': 'GET,POST'
+            },
+            'body': json.dumps({'error': str(e)})
         }
