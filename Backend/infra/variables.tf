@@ -14,3 +14,8 @@ variable "stage_name" {
   default     = "prod"
 }
 
+variable "s3_bucket_name" {
+  type        = string
+  default     = ""
+  description = "Optional: provide a bucket name; otherwise Terraform will generate one."
+}
