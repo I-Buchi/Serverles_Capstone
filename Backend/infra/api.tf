@@ -28,7 +28,6 @@ module "api_gateway" {
         type   = "AWS_PROXY"
         method = "POST"
       }
-      authorizer_key = "cognito-jwt"
     }
   }
 

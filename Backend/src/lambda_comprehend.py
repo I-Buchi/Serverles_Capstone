@@ -54,7 +54,7 @@ def lambda_handler(event, context):
         # Update DynamoDB record status to COMPLETED
         table = dynamodb.Table(DYNAMO_TABLE)
         table.update_item(
-            Key={'file_id': file_id},
+            Key={'record_id': file_id},
             UpdateExpression='SET #status = :status, entities_output = :entities_output, updated_at = :updated_at',
             ExpressionAttributeNames={'#status': 'status'},
             ExpressionAttributeValues={

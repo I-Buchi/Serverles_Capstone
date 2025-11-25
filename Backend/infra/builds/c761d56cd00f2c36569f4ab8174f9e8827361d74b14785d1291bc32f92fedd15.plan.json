@@ -1,1 +1,0 @@
-{"filename": "builds/c761d56cd00f2c36569f4ab8174f9e8827361d74b14785d1291bc32f92fedd15.zip", "runtime": "python3.9", "artifacts_dir": "builds", "build_plan": [[["zip", "./../src/lambda_comprehend.py", null]]], "quiet": "true"}

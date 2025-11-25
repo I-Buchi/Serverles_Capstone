@@ -39,7 +39,7 @@ def lambda_handler(event, context):
         # Update the record in DynamoDB with transcription job info
         table = dynamodb.Table(DYNAMO_TABLE)
         table.update_item(
-            Key={'file_id': file_id},
+            Key={'record_id': file_id},
             UpdateExpression='SET #status = :status, transcription_job_name = :job_name, updated_at = :updated_at',
             ExpressionAttributeNames={'#status': 'status'},
             ExpressionAttributeValues={

@@ -28,7 +28,7 @@ def lambda_handler(event, context):
         
         # Try to get record from DynamoDB using file_id
         table = dynamodb.Table(DYNAMO_TABLE)
-        response = table.get_item(Key={'file_id': file_id})
+        response = table.get_item(Key={'record_id': file_id})
         
         result = {'fileId': file_id, 'status': 'processing'}
         

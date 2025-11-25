@@ -12,8 +12,10 @@ DYNAMO_TABLE = os.environ['DYNAMO_TABLE']
 
 def lambda_handler(event, context):
     try:
-        # Get user info from Cognito
-        user_id = event['requestContext']['authorizer']['claims']['sub']
+        # Get user info from Cognito (handle both authenticated and unauthenticated requests)
+        user_id = 'anonymous'
+        if event.get('requestContext', {}).get('authorizer', {}).get('claims'):
+            user_id = event['requestContext']['authorizer']['claims']['sub']
         
         # Parse request body
         body = json.loads(event['body'])
@@ -45,7 +47,7 @@ def lambda_handler(event, context):
         table = dynamodb.Table(DYNAMO_TABLE)
         table.put_item(
             Item={
-                'file_id': file_id,
+                'record_id': file_id,
                 'user_id': user_id,
                 'filename': filename,
                 'file_key': file_key,

@@ -17,17 +17,6 @@ module "cognito_user_pool" {
     allow_admin_create_user_only = false
   }
   
-  # Custom attributes for user type
-  schemas = [
-    {
-      name                     = "user_type"
-      attribute_data_type      = "String"
-      mutable                  = true
-      required                 = false
-      developer_only_attribute = false
-    }
-  ]
-
   password_policy = {
     minimum_length    = 8
     require_lowercase = true
@@ -57,8 +46,8 @@ module "cognito_user_pool" {
       generate_secret = false
       
       # Write attributes during signup
-      write_attributes = ["email", "custom:user_type"]
-      read_attributes  = ["email", "custom:user_type"]
+      write_attributes = ["email"]
+      read_attributes  = ["email"]
     }
   ]
 

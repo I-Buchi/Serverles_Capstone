@@ -1,1 +1,0 @@
-{"filename": "builds/b4f4684f5e5771d585ea1d373873519933619d179ebf8b35b231986d4415b366.zip", "runtime": "python3.9", "artifacts_dir": "builds", "build_plan": [[["zip", "./../src/lambda_upload.py", null]]], "quiet": "true"}
